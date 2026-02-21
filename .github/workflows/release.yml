@@ -53,3 +53,33 @@ jobs:
         with:
           files: NVSmiBar.dmg
           generate_release_notes: true
+
+      - name: Update Homebrew Cask
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          SHA256=$(shasum -a 256 NVSmiBar.dmg | awk '{print $1}')
+
+          git clone https://x-access-token:${TAP_TOKEN}@github.com/XingyuHu109/homebrew-tap.git /tmp/homebrew-tap
+
+          cat > /tmp/homebrew-tap/Casks/nvsmibar.rb << CASK
+          cask "nvsmibar" do
+            version "${VERSION}"
+            sha256 "${SHA256}"
+
+            url "https://github.com/XingyuHu109/NVSmiBar/releases/download/v#{version}/NVSmiBar.dmg"
+            name "NVSmiBar"
+            desc "macOS menu bar app for monitoring remote NVIDIA GPUs over SSH"
+            homepage "https://github.com/XingyuHu109/NVSmiBar"
+
+            app "NVSmiBar.app"
+          end
+          CASK
+
+          cd /tmp/homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/nvsmibar.rb
+          git commit -m "chore: update nvsmibar cask to v${VERSION}"
+          git push
