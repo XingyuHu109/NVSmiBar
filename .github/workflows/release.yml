@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+
+      - name: Build app
+        run: wails build
+
+      - name: Create DMG
+        run: |
+          mkdir -p /tmp/NVSmiBar-dmg
+          cp -r build/bin/NVSmiBar.app /tmp/NVSmiBar-dmg/
+          hdiutil create \
+            -volname "NVSmiBar" \
+            -srcfolder /tmp/NVSmiBar-dmg \
+            -ov -format UDRW \
+            /tmp/NVSmiBar-rw.dmg
+          hdiutil convert /tmp/NVSmiBar-rw.dmg \
+            -format UDZO \
+            -o NVSmiBar.dmg
+
+      - name: Upload release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: NVSmiBar.dmg
+          generate_release_notes: true
