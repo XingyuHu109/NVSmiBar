@@ -53,7 +53,7 @@ function formatTrayTitle(gpus: GPU[], s: Settings): string {
 
   const parts = [prefix]
   if (s.showUtil) parts.push(`${util}%`)
-  if (s.showTemp) parts.push(`${temp}°`)
+  if (s.showTemp) parts.push(`${temp}°C`)
   if (s.showVram) {
     const usedG  = Math.round(used  / 1024)
     const totalG = Math.round(total / 1024)
@@ -98,7 +98,7 @@ function GPUCard({ gpu }: { gpu: GPU }) {
         </span>
         <span>
           MEM <span className={`font-bold ${memColor}`}>{gpu.memUsed}</span>
-          <span className="text-slate-500">/{gpu.memTotal}</span>
+          <span className="text-slate-500">/{gpu.memTotal} MB</span>
         </span>
       </div>
       <div className="w-full bg-white/10 rounded-full h-1">
