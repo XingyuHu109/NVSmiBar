@@ -30,7 +30,7 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
       - name: Build app
-        run: wails build
+        run: wails build -ldflags "-X main.appVersion=${{ github.ref_name }}"
 
       - name: Ad-hoc sign
         run: codesign --force --deep --sign - build/bin/NVSmiBar.app

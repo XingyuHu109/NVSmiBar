@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { EventsOn } from '../wailsjs/runtime/runtime'
-import { SetHost, HideWindow, UpdateTrayTitle, Quit } from '../wailsjs/go/main/App'
+import { SetHost, HideWindow, UpdateTrayTitle, Quit, CheckForUpdate, DoUpdate } from '../wailsjs/go/main/App'
 
 interface GPU {
   index: number
@@ -120,11 +120,31 @@ export default function App() {
   )
   const [settings, setSettings] = useState<Settings>(loadSettings)
   const settingsRef = useRef(settings)
+  const [updateInfo, setUpdateInfo] = useState<{ latest: string; url: string } | null>(null)
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'updating' | 'done' | 'opened'>('idle')
 
   useEffect(() => {
     settingsRef.current = settings
     localStorage.setItem('nvSmiSettings', JSON.stringify(settings))
   }, [settings])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      CheckForUpdate().then(result => {
+        if (result.available) {
+          setUpdateInfo({ latest: result.latest, url: result.url })
+        }
+      })
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    const off = EventsOn('update:status', (status: string) => {
+      setUpdateStatus(status as 'idle' | 'updating' | 'done' | 'opened')
+    })
+    return () => off()
+  }, [])
 
   useEffect(() => {
     const offData = EventsOn('gpu:data', (data: GPU[]) => {
@@ -186,6 +206,42 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      {/* Update banner */}
+      {updateInfo && (
+        <div className="flex-shrink-0 px-3 pt-2">
+          <div className="bg-indigo-950/50 border border-indigo-500/30 rounded-lg px-3 py-2 flex items-center justify-between text-xs">
+            {updateStatus === 'idle' && (
+              <>
+                <span className="text-indigo-300">↑ {updateInfo.latest} available</span>
+                <button
+                  onClick={() => DoUpdate(updateInfo.url)}
+                  className="ml-2 px-2 py-0.5 rounded bg-indigo-600/60 hover:bg-indigo-600 text-white transition-colors"
+                >
+                  Update
+                </button>
+              </>
+            )}
+            {updateStatus === 'updating' && (
+              <span className="text-indigo-300">Updating…</span>
+            )}
+            {updateStatus === 'done' && (
+              <>
+                <span className="text-emerald-400">✓ Done — relaunch to apply</span>
+                <button
+                  onClick={() => Quit()}
+                  className="ml-2 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+                >
+                  Quit
+                </button>
+              </>
+            )}
+            {updateStatus === 'opened' && (
+              <span className="text-indigo-300">↗ Opened releases page in browser</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* GPU list */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
