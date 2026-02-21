@@ -6,21 +6,24 @@ macOS menu bar app that monitors remote NVIDIA GPUs over SSH — live utilizatio
 
 ## Installation
 
-**Homebrew (recommended — no Gatekeeper prompts):**
+**Homebrew (Recommended):**
 
 ```bash
 brew install --cask XingyuHu109/tap/nvsmibar
 ```
 
-**Manual DMG:**
+
+<details>
+<summary>Manual DMG Installation:</summary>
 
 1. Download **[NVSmiBar.dmg](https://github.com/XingyuHu109/NVSmiBar/releases/latest/download/NVSmiBar.dmg)** (Apple Silicon, macOS 12+)
 2. Drag **NVSmiBar.app** to Applications and launch it
 3. If macOS shows _"Apple could not verify…"_, go to **System Settings → Privacy & Security → Open Anyway**
+</details>
 
-After installing either way:
+After installation:
+
 - Click the **GPU** label in the menu bar → enter your SSH host (e.g. `user@node01`)
-
 > Requires SSH key-based auth to your GPU server and `nvidia-smi` on the remote machine.
 
 ## Features
