@@ -4,6 +4,20 @@
 
 macOS menu bar app that monitors remote NVIDIA GPUs over SSH — live utilization, temperature, and VRAM every second, no terminal required.
 
+## Preview
+
+<p align="center">
+  <img src="assets/popup_ui.png" width="380" alt="NVSmiBar popup window showing GPU metrics" />
+</p>
+
+<p align="center">
+  <img src="assets/Standard_menu_bar_util.png" style="height:28px;" alt="NVSmiBar menu bar — Standard mode" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="assets/multi_gpu_menu_util.png" style="height:28px;" alt="NVSmiBar menu bar — Multi-GPU mode" />
+  <br/>
+  <sub>Menu bar — Standard mode &nbsp;·&nbsp; Multi-GPU mode</sub>
+</p>
+
 ## Installation
 
 **Homebrew (Recommended):**
