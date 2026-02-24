@@ -23,16 +23,19 @@ brew install --cask XingyuHu109/tap/nvsmibar
 
 After installation:
 
-- Click the **GPU** label in the menu bar → enter your SSH host (e.g. `user@node01`)
+- Click the **GPU** label in the menu bar to open the mini popup
+- Use **Open dashboard** to add/manage SSH connections and import aliases from `~/.ssh/config`
 > Requires SSH key-based auth to your GPU server and `nvidia-smi` on the remote machine.
 
 ## Features
 
 - Menu bar only — no Dock icon
-- Polls `nvidia-smi` every second via SSH
-- Per-GPU util %, temp °C, VRAM — color-coded above 90 % util / 80 °C
-- Configurable menu bar display (util, temp, VRAM, model name)
-- SSH host persisted across sessions
+- Two UX modes: mini popup for quick glance + full dashboard for connection management
+- Saved SSH connection profiles (duplicates allowed) with quick switch in mini popup
+- SSH config alias import (`~/.ssh/config` + `Include` files)
+- Polls `nvidia-smi` every second via SSH with stale-data retention + auto-retry backoff
+- Per-GPU util/temp/VRAM plus fan/power/driver/CUDA when available
+- Menu bar display modes: minimal, compact, standard, spark, multi-GPU
 
 ## Build from Source
 

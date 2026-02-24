@@ -20,17 +20,64 @@ type UpdateInfo struct {
 	URL       string `json:"url"`
 }
 
+type ConnectionTestResult struct {
+	Success  bool   `json:"success"`
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	GPUCount int    `json:"gpuCount"`
+}
+
+type ConnectionMeta struct {
+	Status              string `json:"status"`
+	LastSuccessTs       int64  `json:"lastSuccessTs"`
+	ConsecutiveFailures int    `json:"consecutiveFailures"`
+	NextRetryInSec      int    `json:"nextRetryInSec"`
+	ErrorCode           string `json:"errorCode"`
+	ErrorMessage        string `json:"errorMessage"`
+	ActiveTarget        string `json:"activeTarget"`
+	ActivePort          int    `json:"activePort"`
+}
+
+type WindowMode string
+
+const (
+	windowModeMini WindowMode = "mini"
+	windowModeMain WindowMode = "main"
+
+	miniWidth  = 380
+	miniHeight = 500
+	mainWidth  = 900
+	mainHeight = 700
+)
+
+var retrySchedule = []time.Duration{
+	2 * time.Second,
+	5 * time.Second,
+	10 * time.Second,
+	20 * time.Second,
+	30 * time.Second,
+}
+
 type App struct {
-	ctx     context.Context
-	mu      sync.Mutex
-	host    string
-	visible bool
-	stopCh  chan struct{}
+	ctx context.Context
+
+	mu sync.Mutex
+
+	connectionTarget string
+	connectionPort   int
+
+	windowMode WindowMode
+	visible    bool
+
+	stopCh    chan struct{}
+	pollNowCh chan struct{}
 }
 
 func NewApp() *App {
 	return &App{
-		stopCh: make(chan struct{}),
+		windowMode: windowModeMini,
+		stopCh:     make(chan struct{}),
+		pollNowCh:  make(chan struct{}, 1),
 	}
 }
 
@@ -135,47 +182,169 @@ func isNewer(latest, current string) bool {
 	return len(l) > len(c)
 }
 
-// SetHost is called from the frontend to update the SSH host.
+// SetHost is a backward-compatible shim for older frontend builds.
 func (a *App) SetHost(host string) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.host = host
+	target, port := parseLegacyHost(strings.TrimSpace(host))
+	a.SetConnection(target, port)
 }
 
-// HideWindow hides the popup window. Called from the frontend close button.
+func parseLegacyHost(raw string) (string, int) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", 0
+	}
+	idx := strings.LastIndex(raw, ":")
+	if idx <= 0 || idx == len(raw)-1 {
+		return raw, 22
+	}
+	port, err := strconv.Atoi(raw[idx+1:])
+	if err != nil {
+		return raw, 22
+	}
+	return raw[:idx], port
+}
+
+func (a *App) wakePollLoop() {
+	select {
+	case a.pollNowCh <- struct{}{}:
+	default:
+	}
+}
+
+// SetConnection updates the active SSH target and optional port.
+func (a *App) SetConnection(target string, port int) {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		port = 0
+	}
+	a.mu.Lock()
+	a.connectionTarget = target
+	a.connectionPort = port
+	a.mu.Unlock()
+	a.wakePollLoop()
+}
+
+// RetryConnection triggers an immediate poll attempt.
+func (a *App) RetryConnection() {
+	a.wakePollLoop()
+}
+
+// TestConnection runs a preflight query and returns actionable status.
+func (a *App) TestConnection(target string, port int) ConnectionTestResult {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return ConnectionTestResult{
+			Success: false,
+			Code:    "invalid_input",
+			Message: "Host is required",
+		}
+	}
+	gpus, err := queryGPUs(target, port)
+	if err != nil {
+		code, msg := classifyConnectionError(err)
+		return ConnectionTestResult{Success: false, Code: code, Message: msg}
+	}
+	return ConnectionTestResult{
+		Success:  true,
+		Code:     "ok",
+		Message:  "Connection successful",
+		GPUCount: len(gpus),
+	}
+}
+
+// ListSSHConfigConnections discovers candidate aliases from local ssh config.
+func (a *App) ListSSHConfigConnections() []SSHConfigConnection {
+	connections, err := discoverSSHConfigConnections()
+	if err != nil {
+		return []SSHConfigConnection{}
+	}
+	return connections
+}
+
+// HideWindow hides the current window.
 func (a *App) HideWindow() {
 	a.hideWindow()
 }
 
+// ShowMiniWindow shows the tray-anchored popup mode.
+func (a *App) ShowMiniWindow() {
+	a.showMiniWindow()
+}
+
+// ShowMainWindow shows the full dashboard mode.
+func (a *App) ShowMainWindow() {
+	a.showMainWindow()
+}
+
+// HandleTrayClick applies mode-aware tray click behavior.
+func (a *App) HandleTrayClick() {
+	a.mu.Lock()
+	visible := a.visible
+	mode := a.windowMode
+	a.mu.Unlock()
+
+	if !visible {
+		a.showMiniWindow()
+		return
+	}
+	if mode == windowModeMini {
+		a.hideWindow()
+		return
+	}
+	a.showMiniWindow()
+}
+
 // UpdateTrayTitle updates the menu bar status item title.
-// Called from the frontend on each gpu:data event.
 func (a *App) UpdateTrayTitle(title string) {
 	setTrayTitle(title)
 }
 
-// Quit exits the application. Called from the frontend settings panel.
+// UpdateTrayData renders GPU metrics graphically in the menu bar (two-line stacked layout).
+func (a *App) UpdateTrayData(temp, util, memUsed, memTotal int, status string) {
+	setTrayGPUStatus(temp, util, memUsed, memTotal, status)
+}
+
+// Quit exits the application.
 func (a *App) Quit() {
 	runtime.Quit(a.ctx)
 }
 
-func (a *App) showWindow() {
-	const popupWidth = 380
-	x := getStatusItemRightX() - popupWidth
+func (a *App) showMiniWindow() {
+	x := getStatusItemRightX() - miniWidth
 	if x < 0 {
 		// Fallback: top-right of primary screen
 		screens, err := runtime.ScreenGetAll(a.ctx)
 		if err == nil && len(screens) > 0 {
-			x = screens[0].Size.Width - popupWidth - 10
+			x = screens[0].Size.Width - miniWidth - 10
 		}
 	}
 	if x < 0 {
 		x = 0
 	}
+
+	runtime.WindowSetSize(a.ctx, miniWidth, miniHeight)
+	runtime.WindowSetAlwaysOnTop(a.ctx, true)
 	runtime.WindowSetPosition(a.ctx, x, 28)
 	runtime.WindowShow(a.ctx)
+
 	a.mu.Lock()
 	a.visible = true
+	a.windowMode = windowModeMini
 	a.mu.Unlock()
+	runtime.EventsEmit(a.ctx, "window:mode", string(windowModeMini))
+}
+
+func (a *App) showMainWindow() {
+	runtime.WindowSetSize(a.ctx, mainWidth, mainHeight)
+	runtime.WindowSetAlwaysOnTop(a.ctx, false)
+	runtime.WindowCenter(a.ctx)
+	runtime.WindowShow(a.ctx)
+
+	a.mu.Lock()
+	a.visible = true
+	a.windowMode = windowModeMain
+	a.mu.Unlock()
+	runtime.EventsEmit(a.ctx, "window:mode", string(windowModeMain))
 }
 
 func (a *App) hideWindow() {
@@ -185,40 +354,163 @@ func (a *App) hideWindow() {
 	a.mu.Unlock()
 }
 
-func (a *App) toggleWindow() {
-	a.mu.Lock()
-	visible := a.visible
-	a.mu.Unlock()
-	if visible {
-		a.hideWindow()
-	} else {
-		a.showWindow()
+func retryDelay(failureCount int) time.Duration {
+	if failureCount <= 0 {
+		return 0
 	}
+	idx := failureCount - 1
+	if idx >= len(retrySchedule) {
+		idx = len(retrySchedule) - 1
+	}
+	return retrySchedule[idx]
+}
+
+func classifyConnectionError(err error) (code string, msg string) {
+	raw := strings.TrimSpace(err.Error())
+	lower := strings.ToLower(raw)
+	switch {
+	case strings.Contains(lower, "permission denied"):
+		return "auth_failed", "SSH auth failed. Check key-based access."
+	case strings.Contains(lower, "host key verification failed"):
+		return "host_key", "SSH host key not trusted. Connect once in terminal to confirm host."
+	case strings.Contains(lower, "could not resolve hostname"):
+		return "dns", "Host name could not be resolved. Check host alias and DNS."
+	case strings.Contains(lower, "connection refused"):
+		return "refused", "Connection refused by host. Check SSH service and port."
+	case strings.Contains(lower, "timed out") || strings.Contains(lower, "operation timed out"):
+		return "timeout", "Host unreachable. Check network or VPN and try again."
+	case strings.Contains(lower, "nvidia-smi") && (strings.Contains(lower, "not found") || strings.Contains(lower, "command not found")):
+		return "nvidia_smi_missing", "nvidia-smi not found on remote host."
+	default:
+		if raw == "" {
+			raw = "Connection failed"
+		}
+		return "unknown", raw
+	}
+}
+
+func (a *App) emitConnMeta(status string, lastSuccess time.Time, failures int, nextRetryAt time.Time, errCode string, errMsg string, target string, port int, now time.Time) {
+	meta := ConnectionMeta{
+		Status:              status,
+		ConsecutiveFailures: failures,
+		ErrorCode:           errCode,
+		ErrorMessage:        errMsg,
+		ActiveTarget:        target,
+		ActivePort:          port,
+	}
+	if !lastSuccess.IsZero() {
+		meta.LastSuccessTs = lastSuccess.Unix()
+	}
+	if !nextRetryAt.IsZero() && nextRetryAt.After(now) {
+		remaining := int(nextRetryAt.Sub(now).Seconds())
+		if remaining <= 0 {
+			remaining = 1
+		}
+		meta.NextRetryInSec = remaining
+	}
+	runtime.EventsEmit(a.ctx, "gpu:conn_meta", meta)
 }
 
 func (a *App) pollLoop() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	currentTarget := ""
+	currentPort := 0
+	status := "idle"
+	var lastSuccess time.Time
+	var nextRetryAt time.Time
+	consecutiveFailures := 0
+	lastErrCode := ""
+	lastErrMsg := ""
+
+	emitIdle := func(now time.Time) {
+		a.emitConnMeta("idle", time.Time{}, 0, time.Time{}, "", "", "", 0, now)
+	}
+
+	emitIdle(time.Now())
+
 	for {
+		forcePoll := false
+		now := time.Now()
+
 		select {
 		case <-a.stopCh:
 			return
 		case <-ticker.C:
-			a.mu.Lock()
-			host := a.host
-			a.mu.Unlock()
-
-			if host == "" {
-				continue
-			}
-
-			gpus, err := queryGPUs(host)
-			if err != nil {
-				runtime.EventsEmit(a.ctx, "gpu:error", err.Error())
-			} else {
-				runtime.EventsEmit(a.ctx, "gpu:data", gpus)
-			}
+		case <-a.pollNowCh:
+			forcePoll = true
 		}
+
+		now = time.Now()
+		a.mu.Lock()
+		target := a.connectionTarget
+		port := a.connectionPort
+		a.mu.Unlock()
+
+		if target == "" {
+			status = "idle"
+			currentTarget = ""
+			currentPort = 0
+			lastSuccess = time.Time{}
+			nextRetryAt = time.Time{}
+			consecutiveFailures = 0
+			lastErrCode = ""
+			lastErrMsg = ""
+			emitIdle(now)
+			continue
+		}
+
+		if target != currentTarget || port != currentPort {
+			currentTarget = target
+			currentPort = port
+			status = "connecting"
+			lastSuccess = time.Time{}
+			nextRetryAt = time.Time{}
+			consecutiveFailures = 0
+			lastErrCode = ""
+			lastErrMsg = ""
+			forcePoll = true
+			a.emitConnMeta(status, lastSuccess, consecutiveFailures, nextRetryAt, lastErrCode, lastErrMsg, target, port, now)
+		}
+
+		if !forcePoll && !nextRetryAt.IsZero() && now.Before(nextRetryAt) {
+			a.emitConnMeta(status, lastSuccess, consecutiveFailures, nextRetryAt, lastErrCode, lastErrMsg, target, port, now)
+			continue
+		}
+
+		if lastSuccess.IsZero() {
+			status = "connecting"
+			a.emitConnMeta(status, lastSuccess, consecutiveFailures, nextRetryAt, lastErrCode, lastErrMsg, target, port, now)
+		}
+
+		gpus, err := queryGPUs(target, port)
+		if err == nil {
+			runtime.EventsEmit(a.ctx, "gpu:data", gpus)
+			lastSuccess = now
+			nextRetryAt = time.Time{}
+			consecutiveFailures = 0
+			lastErrCode = ""
+			lastErrMsg = ""
+			status = "live"
+			a.emitConnMeta(status, lastSuccess, consecutiveFailures, nextRetryAt, lastErrCode, lastErrMsg, target, port, now)
+			continue
+		}
+
+		consecutiveFailures++
+		lastErrCode, lastErrMsg = classifyConnectionError(err)
+		runtime.EventsEmit(a.ctx, "gpu:error", lastErrMsg)
+		nextRetryAt = now.Add(retryDelay(consecutiveFailures))
+
+		if !lastSuccess.IsZero() {
+			status = "stale"
+			if consecutiveFailures >= 6 {
+				status = "error"
+			}
+		} else {
+			status = "error"
+		}
+
+		a.emitConnMeta(status, lastSuccess, consecutiveFailures, nextRetryAt, lastErrCode, lastErrMsg, target, port, now)
 	}
 }

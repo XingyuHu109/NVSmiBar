@@ -14,16 +14,48 @@ export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
 
+export function HandleTrayClick() {
+  return window['go']['main']['App']['HandleTrayClick']();
+}
+
 export function HideWindow() {
   return window['go']['main']['App']['HideWindow']();
+}
+
+export function ListSSHConfigConnections() {
+  return window['go']['main']['App']['ListSSHConfigConnections']();
 }
 
 export function Quit() {
   return window['go']['main']['App']['Quit']();
 }
 
+export function RetryConnection() {
+  return window['go']['main']['App']['RetryConnection']();
+}
+
+export function SetConnection(arg1, arg2) {
+  return window['go']['main']['App']['SetConnection'](arg1, arg2);
+}
+
 export function SetHost(arg1) {
   return window['go']['main']['App']['SetHost'](arg1);
+}
+
+export function ShowMainWindow() {
+  return window['go']['main']['App']['ShowMainWindow']();
+}
+
+export function ShowMiniWindow() {
+  return window['go']['main']['App']['ShowMiniWindow']();
+}
+
+export function TestConnection(arg1, arg2) {
+  return window['go']['main']['App']['TestConnection'](arg1, arg2);
+}
+
+export function UpdateTrayData(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['UpdateTrayData'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function UpdateTrayTitle(arg1) {

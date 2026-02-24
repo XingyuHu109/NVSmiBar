@@ -1,13 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  -webkit-user-select: none;
-  user-select: none;
+:root {
+  --background: #0f1115;
+  --foreground: #e4e4e8;
+  --card: #181a20;
+  --card-foreground: #e4e4e8;
+  --primary: #76b900;
+  --primary-foreground: #0f1115;
+  --secondary: #1e2028;
+  --secondary-foreground: #c8c8d0;
+  --muted: #1e2028;
+  --muted-foreground: #6b6b7b;
+  --accent: #252830;
+  --accent-foreground: #e4e4e8;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #2a2d35;
+  --input: #252830;
+  --ring: #76b900;
 }
 
-input {
-  -webkit-user-select: text;
-  user-select: text;
+@layer base {
+  * {
+    @apply border-border;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+@keyframes ping-dot {
+  0% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.animate-ping-dot {
+  animation: ping-dot 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.drag-region {
+  --wails-draggable: drag;
+}
+
+.no-drag {
+  --wails-draggable: no-drag;
 }

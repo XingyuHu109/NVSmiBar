@@ -8,10 +8,26 @@ export function DoUpdate(arg1:string):Promise<void>;
 
 export function GetVersion():Promise<string>;
 
+export function HandleTrayClick():Promise<void>;
+
 export function HideWindow():Promise<void>;
+
+export function ListSSHConfigConnections():Promise<Array<main.SSHConfigConnection>>;
 
 export function Quit():Promise<void>;
 
+export function RetryConnection():Promise<void>;
+
+export function SetConnection(arg1:string,arg2:number):Promise<void>;
+
 export function SetHost(arg1:string):Promise<void>;
+
+export function ShowMainWindow():Promise<void>;
+
+export function ShowMiniWindow():Promise<void>;
+
+export function TestConnection(arg1:string,arg2:number):Promise<main.ConnectionTestResult>;
+
+export function UpdateTrayData(arg1:number,arg2:number,arg3:number,arg4:number,arg5:string):Promise<void>;
 
 export function UpdateTrayTitle(arg1:string):Promise<void>;

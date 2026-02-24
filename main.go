@@ -17,11 +17,11 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:             "NVSmiBar",
-		Width:             380,
-		Height:            500,
+		Width:             mainWidth,
+		Height:            mainHeight,
 		Frameless:         true,
 		StartHidden:       true,
-		AlwaysOnTop:       true,
+		AlwaysOnTop:       false,
 		HideWindowOnClose: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,

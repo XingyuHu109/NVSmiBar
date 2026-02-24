@@ -8,6 +8,7 @@ package main
 extern void nvSmiBarSetupTray(void);
 extern void nvSmiBarSetTitle(const char *title);
 extern double nvSmiBarGetButtonRightX(void);
+extern void nvSmiBarSetGPUStatus(int temp, int util, int memUsedMiB, int memTotalMiB, const char *status);
 */
 import "C"
 import "unsafe"
@@ -21,7 +22,7 @@ var gApp *App
 func goStatusItemClicked() {
 	go func() {
 		if gApp != nil {
-			gApp.toggleWindow()
+			gApp.HandleTrayClick()
 		}
 	}()
 }
@@ -38,6 +39,13 @@ func setTrayTitle(title string) {
 	cs := C.CString(title)
 	defer C.free(unsafe.Pointer(cs))
 	C.nvSmiBarSetTitle(cs)
+}
+
+// setTrayGPUStatus renders GPU metrics as a two-line NSImage in the menu bar.
+func setTrayGPUStatus(temp, util, memUsedMiB, memTotalMiB int, status string) {
+	cs := C.CString(status)
+	defer C.free(unsafe.Pointer(cs))
+	C.nvSmiBarSetGPUStatus(C.int(temp), C.int(util), C.int(memUsedMiB), C.int(memTotalMiB), cs)
 }
 
 // getStatusItemRightX returns the right edge X coordinate (screen coords) of
