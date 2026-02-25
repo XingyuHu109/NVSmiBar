@@ -19,7 +19,7 @@ macOS menu bar app that monitors remote NVIDIA GPUs over SSH — live utilizatio
   &nbsp;&nbsp;&nbsp;
   <img src="assets/multi_gpu_menu_util.png" style="height:28px;" alt="NVSmiBar menu bar — Multi-GPU mode" />
   <br/>
-  <sub>Menu bar — Standard mode &nbsp;·&nbsp; Multi-GPU mode</sub>
+  <sub>MacOS Menu bar — Standard mode &nbsp;·&nbsp; Multi-GPU mode</sub>
 </p>
 
 ## Installation
